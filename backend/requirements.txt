@@ -1,5 +1,4 @@
 fastapi==0.115.0
 uvicorn==0.30.0
-pymongo==4.9.0
+pymongo[ocsp,auth-oidc]==4.9.0
 pydantic==2.9.0
-pymongo-auth-oidc==1.3.0
