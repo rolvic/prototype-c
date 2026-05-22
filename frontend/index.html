@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype C - Registro de Vehiculos</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+        .header { background: linear-gradient(135deg, #e53935, #b71c1c); color: white; padding: 20px; text-align: center; }
+        .header h1 { font-size: 22px; margin-bottom: 5px; }
+        .header .stats { font-size: 14px; opacity: 0.9; margin-top: 8px; }
+        .container { max-width: 900px; margin: 20px auto; padding: 0 15px; }
+        .card { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 15px; }
+        .card h2 { color: #e53935; margin-bottom: 12px; font-size: 16px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full { grid-column: 1 / -1; }
+        label { font-size: 12px; color: #666; margin-bottom: 3px; font-weight: 500; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        input:focus { outline: none; border-color: #e53935; }
+        .btn { padding: 10px 20px; background: linear-gradient(135deg, #e53935, #b71c1c); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; margin-top: 10px; }
+        .btn:hover { transform: translateY(-1px); }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #e53935; color: white; padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; }
+        td { padding: 8px 10px; border-bottom: 1px solid #eee; font-size: 13px; }
+        tr:hover { background: #fff5f5; }
+        .empty { text-align: center; padding: 30px; color: #999; }
+        .plate { background: #f5f5f5; padding: 3px 8px; border-radius: 4px; font-family: monospace; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Prototype C</h1>
+        <p>Registro de Vehiculos (MongoDB)</p>
+        <div class="stats" id="stats">Cargando...</div>
+    </div>
+    <div class="container">
+        <div class="card">
+            <h2>Registrar Vehiculo</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Marca</label>
+                    <input type="text" id="brand" placeholder="Toyota">
+                </div>
+                <div class="form-group">
+                    <label>Modelo</label>
+                    <input type="text" id="model" placeholder="Corolla">
+                </div>
+                <div class="form-group">
+                    <label>Anio</label>
+                    <input type="number" id="year" placeholder="2024" min="1900" max="2030">
+                </div>
+                <div class="form-group">
+                    <label>Color</label>
+                    <input type="text" id="color" placeholder="Blanco">
+                </div>
+                <div class="form-group">
+                    <label>Placa</label>
+                    <input type="text" id="plate" placeholder="ABC-1234">
+                </div>
+                <div class="form-group">
+                    <label>Propietario</label>
+                    <input type="text" id="owner_name" placeholder="Juan Perez">
+                </div>
+            </div>
+            <button class="btn" onclick="createVehicle()">Registrar</button>
+        </div>
+        <div class="card">
+            <h2>Vehiculos Registrados</h2>
+            <div id="vehicles-list"><div class="empty">Cargando...</div></div>
+        </div>
+    </div>
+    <script>
+        const API = "/api";
+        async function loadStats() {
+            try {
+                const res = await fetch(API + "/stats");
+                const data = await res.json();
+                document.getElementById("stats").textContent = "Total: " + data.total_vehicles + " vehiculos";
+            } catch(e) { console.error(e); }
+        }
+        async function loadVehicles() {
+            try {
+                const res = await fetch(API + "/vehicles");
+                const data = await res.json();
+                const list = document.getElementById("vehicles-list");
+                if (!data.vehicles || data.vehicles.length === 0) {
+                    list.innerHTML = '<div class="empty">No hay vehiculos registrados</div>';
+                    return;
+                }
+                list.innerHTML = '<table><thead><tr><th>Placa</th><th>Marca</th><th>Modelo</th><th>Anio</th><th>Color</th><th>Propietario</th></tr></thead><tbody>' +
+                    data.vehicles.map(v =>
+                        '<tr><td><span class="plate">' + v.plate + '</span></td><td>' + v.brand + '</td><td>' + v.model + '</td><td>' + v.year + '</td><td>' + v.color + '</td><td>' + v.owner_name + '</td></tr>'
+                    ).join("") + '</tbody></table>';
+            } catch(e) { console.error(e); }
+        }
+        async function createVehicle() {
+            const fields = ["brand", "model", "year", "color", "plate", "owner_name"];
+            const data = {};
+            for (const f of fields) {
+                data[f] = document.getElementById(f).value;
+                if (!data[f]) return alert("Todos los campos son obligatorios");
+            }
+            data.year = parseInt(data.year);
+            await fetch(API + "/vehicles", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(data)
+            });
+            for (const f of fields) document.getElementById(f).value = "";
+            loadVehicles();
+            loadStats();
+        }
+        loadVehicles();
+        loadStats();
+    </script>
+</body>
+</html>
