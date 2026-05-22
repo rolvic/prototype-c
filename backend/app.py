@@ -1,4 +1,4 @@
-"""Task Manager API — FastAPI + MongoDB (pymongo)."""
+"""Vehicle Registry API — FastAPI + MongoDB (pymongo)."""
 
 import os
 import uuid
@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pymongo import MongoClient
 
-app = FastAPI(title="Task Manager API", version="1.0.0")
+app = FastAPI(title="Vehicle Registry API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017/taskmanager")
+MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017/vehicles")
 
 
 def get_db():
@@ -27,17 +27,22 @@ def get_db():
     return client.get_default_database()
 
 
-class TaskCreate(BaseModel):
-    title: str
-    description: str = ""
-    priority: str = "medium"
+class VehicleCreate(BaseModel):
+    brand: str
+    model: str
+    year: int
+    color: str
+    plate: str
+    owner_name: str
 
 
-class TaskUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    priority: Optional[str] = None
-    done: Optional[bool] = None
+class VehicleUpdate(BaseModel):
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    year: Optional[int] = None
+    color: Optional[str] = None
+    plate: Optional[str] = None
+    owner_name: Optional[str] = None
 
 
 @app.get("/health")
@@ -50,63 +55,57 @@ async def health():
         return {"status": "degraded", "database": "mongodb", "connected": False, "error": str(e)}
 
 
-@app.post("/api/tasks")
-async def create_task(task: TaskCreate):
+@app.post("/api/vehicles")
+async def create_vehicle(vehicle: VehicleCreate):
     db = get_db()
-    task_id = str(uuid.uuid4())[:8]
+    vehicle_id = str(uuid.uuid4())[:8]
     doc = {
-        "_id": task_id,
-        "title": task.title,
-        "description": task.description,
-        "priority": task.priority,
-        "done": False,
+        "_id": vehicle_id,
+        "brand": vehicle.brand,
+        "model": vehicle.model,
+        "year": vehicle.year,
+        "color": vehicle.color,
+        "plate": vehicle.plate,
+        "owner_name": vehicle.owner_name,
         "created_at": datetime.utcnow().isoformat(),
     }
-    db.tasks.insert_one(doc)
-    return {"id": task_id, "status": "created"}
+    db.vehicles.insert_one(doc)
+    return {"id": vehicle_id, "status": "created"}
 
 
-@app.get("/api/tasks")
-async def list_tasks(done: Optional[bool] = None):
+@app.get("/api/vehicles")
+async def list_vehicles():
     db = get_db()
-    query = {}
-    if done is not None:
-        query["done"] = done
-    tasks = list(db.tasks.find(query).sort("created_at", -1))
-    for t in tasks:
-        t["id"] = t.pop("_id")
-    return {"tasks": tasks, "count": len(tasks)}
+    vehicles = list(db.vehicles.find().sort("created_at", -1))
+    for v in vehicles:
+        v["id"] = v.pop("_id")
+    return {"vehicles": vehicles, "count": len(vehicles)}
 
 
-@app.get("/api/tasks/{task_id}")
-async def get_task(task_id: str):
+@app.get("/api/vehicles/{vehicle_id}")
+async def get_vehicle(vehicle_id: str):
     db = get_db()
-    doc = db.tasks.find_one({"_id": task_id})
+    doc = db.vehicles.find_one({"_id": vehicle_id})
     if not doc:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Vehicle not found")
     doc["id"] = doc.pop("_id")
     return doc
 
 
-@app.put("/api/tasks/{task_id}")
-async def update_task(task_id: str, task: TaskUpdate):
+@app.delete("/api/vehicles/{vehicle_id}")
+async def delete_vehicle(vehicle_id: str):
     db = get_db()
-    updates = {k: v for k, v in task.dict().items() if v is not None}
-    if not updates:
-        raise HTTPException(status_code=400, detail="No fields to update")
-    result = db.tasks.update_one({"_id": task_id}, {"$set": updates})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return {"id": task_id, "status": "updated"}
-
-
-@app.delete("/api/tasks/{task_id}")
-async def delete_task(task_id: str):
-    db = get_db()
-    result = db.tasks.delete_one({"_id": task_id})
+    result = db.vehicles.delete_one({"_id": vehicle_id})
     if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return {"id": task_id, "status": "deleted"}
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    return {"id": vehicle_id, "status": "deleted"}
+
+
+@app.get("/api/stats")
+async def stats():
+    db = get_db()
+    total = db.vehicles.count_documents({})
+    return {"total_vehicles": total}
 
 
 if __name__ == "__main__":
